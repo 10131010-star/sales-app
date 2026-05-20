@@ -7,7 +7,7 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="96" fill="url(#g)"/>
-  <text x="256" y="200" text-anchor="middle" font-size="120" fill="white">=Ê</text>
-  <text x="256" y="340" text-anchor="middle" font-family="sans-serif" font-size="56" font-weight="bold" fill="white">¶m/ô</text>
-  <text x="256" y="400" text-anchor="middle" font-family="sans-serif" font-size="32" fill="rgba(255,255,255,0.9)">4>Ô</text>
+  <text x="256" y="200" text-anchor="middle" font-size="120" fill="white">=ï¿½</text>
+  <text x="256" y="340" text-anchor="middle" font-family="sans-serif" font-size="56" font-weight="bold" fill="white">ï¿½m/ï¿½</text>
+  <text x="256" y="400" text-anchor="middle" font-family="sans-serif" font-size="32" fill="rgba(255,255,255,0.9)">4>ï¿½</text>
 </svg>
