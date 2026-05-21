@@ -53,17 +53,17 @@ export function Modal({ open, title, onClose, children, onSave, saveLabel = '保
           {children}
         </div>
 
-        {/* 保存・キャンセル（下部固定・Safe Area対応） */}
-        <div className="shrink-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] border-t border-slate-100 bg-white flex gap-2">
-          <Button variant="secondary" fullWidth onClick={onClose}>
-            キャンセル
-          </Button>
-          {onSave && (
+        {/* 下部固定フッター（onSave 指定時のみ。ナレッジ追加等はフォーム内にボタン配置） */}
+        {onSave && (
+          <div className="shrink-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] border-t border-slate-100 bg-white flex gap-2">
+            <Button variant="secondary" fullWidth onClick={onClose}>
+              キャンセル
+            </Button>
             <Button fullWidth variant={danger ? 'danger' : 'primary'} onClick={onSave}>
               {saveLabel}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

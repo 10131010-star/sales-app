@@ -106,6 +106,14 @@ export function KnowledgePage() {
     setModalOpen(true);
   };
 
+  const handleDeleteForm = async () => {
+    if (!form.id || !confirm('このナレッジを削除しますか？')) return;
+    await removeKnowledge(form.id);
+    formDirtyRef.current = false;
+    setModalOpen(false);
+    setForm(EMPTY_FORM());
+  };
+
   const handleSave = async () => {
     const now = new Date().toISOString();
     const item: KnowledgeItem = {
@@ -328,7 +336,6 @@ export function KnowledgePage() {
         open={modalOpen}
         title={form.id ? 'ナレッジ編集' : 'ナレッジ追加'}
         onClose={() => setModalOpen(false)}
-        onSave={() => void handleSave()}
       >
         <input
           className="w-full rounded-xl border px-3 py-3 min-h-[48px] mb-2"
@@ -361,15 +368,39 @@ export function KnowledgePage() {
             })
           }
         />
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <input
-            type="checkbox"
-            checked={form.favorite ?? false}
-            onChange={(e) => patchForm({ favorite: e.target.checked })}
-            className="w-5 h-5"
-          />
-          お気に入り
-        </label>
+        <div className="sticky bottom-0 z-10 -mx-6 mt-4 flex items-center justify-between gap-3 border-t border-slate-100 bg-white/95 px-6 py-3 backdrop-blur-sm pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
+          <label className="flex items-center gap-2 text-sm font-medium shrink-0 min-h-[48px]">
+            <input
+              type="checkbox"
+              checked={form.favorite ?? false}
+              onChange={(e) => patchForm({ favorite: e.target.checked })}
+              className="w-5 h-5 shrink-0"
+            />
+            <span>お気に入り</span>
+          </label>
+
+          <div className="flex items-center justify-end gap-2 shrink-0">
+            {form.id && (
+              <Button
+                type="button"
+                variant="danger"
+                size="md"
+                className="min-w-[72px]"
+                onClick={() => void handleDeleteForm()}
+              >
+                削除
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="md"
+              className="min-w-[80px]"
+              onClick={() => void handleSave()}
+            >
+              保存
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
