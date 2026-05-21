@@ -1,4 +1,6 @@
 import type { AppData, KnowledgeItem, SalesRecord, SalesTarget, Store } from '@/data/types';
+import { KNOWLEDGE_CATEGORIES } from '@/data/constants';
+import { filterNewKnowledgeItems } from '@/data/seedKnowledge';
 import { uid } from '@/lib/utils';
 import type { DataRepository } from './repository';
 
@@ -21,7 +23,7 @@ export class LocalStorageRepository implements DataRepository {
         stores: parsed.stores ?? [],
         salesRecords: parsed.salesRecords ?? [],
         salesTargets: parsed.salesTargets ?? [],
-        knowledgeItems: parsed.knowledgeItems ?? [],
+        knowledgeItems: (parsed.knowledgeItems ?? []).map((k) => migrateKnowledgeItem(k as KnowledgeItem & Record<string, unknown>)),
       };
     } catch {
       return structuredClone(EMPTY_DATA);
@@ -126,8 +128,42 @@ export class LocalStorageRepository implements DataRepository {
 
   async seedKnowledgeIfEmpty(items: KnowledgeItem[]): Promise<void> {
     const data = await this.read();
-    if (data.knowledgeItems.length > 0) return;
-    data.knowledgeItems = items;
+    const fresh = filterNewKnowledgeItems(data.knowledgeItems, items);
+    if (fresh.length === 0) return;
+    data.knowledgeItems = [...fresh, ...data.knowledgeItems];
     await this.write(data);
   }
+}
+
+/** 旧ナレッジ形式 → 新形式 */
+function migrateKnowledgeItem(raw: KnowledgeItem & Record<string, unknown>): KnowledgeItem {
+  if (typeof raw.talkScript === 'string') return raw as KnowledgeItem;
+  const legacy = raw as Record<string, unknown>;
+  const categoryRaw = String(legacy.category ?? '切り返し');
+  const category = (KNOWLEDGE_CATEGORIES as readonly string[]).includes(categoryRaw)
+    ? (categoryRaw as KnowledgeItem['category'])
+    : '切り返し';
+  const parts = [
+    legacy.objection ? `【断り】${legacy.objection}` : '',
+    legacy.rebuttal ? `【切り返し】${legacy.rebuttal}` : '',
+    legacy.successTalk ? `【成功】${legacy.successTalk}` : '',
+  ].filter(Boolean);
+  return {
+    id: String(legacy.id ?? uid()),
+    category,
+    title: String(legacy.title ?? '無題'),
+    summary: String(legacy.memo ?? legacy.usageScene ?? ''),
+    talkScript: parts.join('\n\n') || String(legacy.memo ?? ''),
+    customerPsychology: '',
+    ngExample: String(legacy.ngTalk ?? ''),
+    successPoint: String(legacy.successTalk ?? ''),
+    nextAction: '',
+    tags: Array.isArray(legacy.tags) ? (legacy.tags as string[]) : [],
+    favorite: Boolean(legacy.favorite),
+    createdBy: String(legacy.registrantId ?? legacy.createdBy ?? 'system'),
+    viewCount: Number(legacy.viewCount ?? 0),
+    useCount: Number(legacy.useCount ?? 0),
+    createdAt: String(legacy.createdAt ?? new Date().toISOString()),
+    updatedAt: String(legacy.updatedAt ?? new Date().toISOString()),
+  };
 }

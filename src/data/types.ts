@@ -73,19 +73,25 @@ export interface SalesTarget {
 
 export interface KnowledgeItem {
   id: string;
-  title: string;
   category: KnowledgeCategory;
-  targetArea: string;
-  storeType: string;
-  objection: string;
-  rebuttal: string;
-  successTalk: string;
-  ngTalk: string;
-  usageScene: string;
-  importance: string;
+  title: string;
+  summary: string;
+  talkScript: string;
+  customerPsychology: string;
+  ngExample: string;
+  successPoint: string;
+  nextAction: string;
   tags: string[];
-  registrantId: SalesMemberId;
-  memo: string;
+  favorite: boolean;
+  createdBy: string;
+  /** 将来: 最終編集者 */
+  updatedBy?: string;
+  /** 将来: 閲覧数 */
+  viewCount?: number;
+  /** 将来: 利用回数（よく使う順） */
+  useCount?: number;
+  /** 将来: 勝率 */
+  winRate?: number | null;
   createdAt: string;
   updatedAt: string;
 }

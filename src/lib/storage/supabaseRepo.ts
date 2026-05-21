@@ -9,6 +9,7 @@ import {
   storeToRow,
   targetToRow,
 } from '@/lib/supabase/mappers';
+import { filterNewKnowledgeItems } from '@/data/seedKnowledge';
 import type { AppData, KnowledgeItem, SalesRecord, SalesTarget, Store } from '@/data/types';
 import type { DataRepository } from './repository';
 
@@ -97,15 +98,37 @@ export class SupabaseRepository implements DataRepository {
 
   async seedKnowledgeIfEmpty(items: KnowledgeItem[]): Promise<void> {
     const sb = getSupabase();
-    const { count, error } = await sb.from('knowledge_items').select('*', { count: 'exact', head: true });
+    const { data: existing, error } = await sb.from('knowledge_items').select('category, title');
     if (error) throw error;
-    if ((count ?? 0) > 0) return;
-    const rows = items.map((k) => ({
+    const fresh = filterNewKnowledgeItems(
+      (existing ?? []).map((r) => ({
+        id: '',
+        category: r.category as KnowledgeItem['category'],
+        title: r.title,
+        summary: '',
+        talkScript: '',
+        customerPsychology: '',
+        ngExample: '',
+        successPoint: '',
+        nextAction: '',
+        tags: [],
+        favorite: false,
+        createdBy: 'system',
+        createdAt: '',
+        updatedAt: '',
+      })),
+      items,
+    );
+    if (fresh.length === 0) return;
+    const rows = fresh.map((k) => ({
       id: k.id,
       ...knowledgeToRow(k),
       created_at: k.createdAt,
+      updated_at: k.updatedAt,
     }));
-    const { error: insertError } = await sb.from('knowledge_items').insert(rows);
+    const { error: insertError } = await sb
+      .from('knowledge_items')
+      .upsert(rows, { onConflict: 'category,title', ignoreDuplicates: true });
     if (insertError) throw insertError;
   }
 }

@@ -4,21 +4,25 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import type { AppData, KnowledgeItem, SalesRecord, SalesTarget, Store } from '@/data/types';
 import type { MemberId, SalesMemberId } from '@/data/constants';
 import { MEMBERS } from '@/data/constants';
-import { buildKnowledgeSeed } from '@/data/knowledgeSeed';
-import { createRepository } from '@/lib/storage';
+import { buildKnowledgeSeed } from '@/data/seedKnowledge';
+import { createRepository, getStorageMode, type StorageMode } from '@/lib/storage';
 import { periodKey } from '@/lib/kpi/periods';
 import type { PeriodType } from '@/data/constants';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { subscribeKnowledgeRealtime } from '@/lib/supabase/knowledgeRealtime';
 
 interface DataContextValue {
   data: AppData;
   loading: boolean;
   error: string | null;
+  storageMode: StorageMode;
   currentMemberId: SalesMemberId;
   setCurrentMemberId: (id: SalesMemberId) => void;
   refresh: () => Promise<void>;
@@ -30,6 +34,8 @@ interface DataContextValue {
   saveKnowledge: (item: KnowledgeItem) => Promise<void>;
   removeKnowledge: (id: string) => Promise<void>;
   recordsFor: (memberId: MemberId) => SalesRecord[];
+  knowledgeSyncNotice: boolean;
+  dismissKnowledgeSyncNotice: () => void;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -65,11 +71,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [knowledgeSyncNotice, setKnowledgeSyncNotice] = useState(false);
   const [currentMemberId, setCurrentMemberId] = useState<SalesMemberId>(
     () => (localStorage.getItem(MEMBER_KEY) as SalesMemberId) || 'nakata',
   );
 
+  const storageMode = useMemo(() => getStorageMode(), []);
   const repo = useMemo(() => createRepository(), []);
+  const knowledgeWriteRef = useRef<Set<string>>(new Set());
+  const syncNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showKnowledgeSyncNotice = useCallback(() => {
+    setKnowledgeSyncNotice(true);
+    if (syncNoticeTimerRef.current) clearTimeout(syncNoticeTimerRef.current);
+    syncNoticeTimerRef.current = setTimeout(() => setKnowledgeSyncNotice(false), 4000);
+  }, []);
+
+  const dismissKnowledgeSyncNotice = useCallback(() => {
+    setKnowledgeSyncNotice(false);
+    if (syncNoticeTimerRef.current) clearTimeout(syncNoticeTimerRef.current);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -108,6 +129,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const patchData = useCallback((fn: (prev: AppData) => AppData) => {
     setData((prev) => (prev ? fn(prev) : prev));
   }, []);
+
+  const applyKnowledgeRealtime = useCallback(
+    (payload: { event: 'INSERT' | 'UPDATE' | 'DELETE'; item?: KnowledgeItem; deletedId?: string }) => {
+      if (payload.event === 'DELETE' && payload.deletedId) {
+        if (knowledgeWriteRef.current.has(payload.deletedId)) return;
+        patchData((prev) => ({
+          ...prev,
+          knowledgeItems: prev.knowledgeItems.filter((k) => k.id !== payload.deletedId),
+        }));
+        showKnowledgeSyncNotice();
+        return;
+      }
+      const item = payload.item;
+      if (!item) return;
+      if (knowledgeWriteRef.current.has(item.id)) return;
+
+      patchData((prev) => {
+        const list = [...prev.knowledgeItems];
+        const idx = list.findIndex((k) => k.id === item.id);
+        if (payload.event === 'INSERT') {
+          if (idx >= 0) {
+            if (list[idx].updatedAt === item.updatedAt) return prev;
+            list[idx] = item;
+          } else {
+            list.unshift(item);
+          }
+        } else if (idx >= 0) {
+          if (list[idx].updatedAt === item.updatedAt) return prev;
+          list[idx] = item;
+        } else {
+          list.unshift(item);
+        }
+        return { ...prev, knowledgeItems: list };
+      });
+      showKnowledgeSyncNotice();
+    },
+    [patchData, showKnowledgeSyncNotice],
+  );
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    return subscribeKnowledgeRealtime(applyKnowledgeRealtime);
+  }, [applyKnowledgeRealtime]);
 
   const saveStore = useCallback(
     async (store: Store) => {
@@ -166,21 +230,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const saveKnowledge = useCallback(
     async (item: KnowledgeItem) => {
-      const saved = await repo.upsertKnowledge(item);
-      patchData((prev) => ({
-        ...prev,
-        knowledgeItems: prev.knowledgeItems.some((k) => k.id === saved.id)
-          ? prev.knowledgeItems.map((k) => (k.id === saved.id ? saved : k))
-          : [saved, ...prev.knowledgeItems],
-      }));
+      knowledgeWriteRef.current.add(item.id);
+      try {
+        const saved = await repo.upsertKnowledge(item);
+        patchData((prev) => ({
+          ...prev,
+          knowledgeItems: prev.knowledgeItems.some((k) => k.id === saved.id)
+            ? prev.knowledgeItems.map((k) => (k.id === saved.id ? saved : k))
+            : [saved, ...prev.knowledgeItems],
+        }));
+      } finally {
+        setTimeout(() => knowledgeWriteRef.current.delete(item.id), 1500);
+      }
     },
     [repo, patchData],
   );
 
   const removeKnowledge = useCallback(
     async (id: string) => {
-      await repo.deleteKnowledge(id);
-      patchData((prev) => ({ ...prev, knowledgeItems: prev.knowledgeItems.filter((k) => k.id !== id) }));
+      knowledgeWriteRef.current.add(id);
+      try {
+        await repo.deleteKnowledge(id);
+        patchData((prev) => ({ ...prev, knowledgeItems: prev.knowledgeItems.filter((k) => k.id !== id) }));
+      } finally {
+        setTimeout(() => knowledgeWriteRef.current.delete(id), 1500);
+      }
     },
     [repo, patchData],
   );
@@ -229,9 +303,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         saveRecord,
         removeRecord,
         saveTarget,
+        storageMode,
         saveKnowledge,
         removeKnowledge,
         recordsFor,
+        knowledgeSyncNotice,
+        dismissKnowledgeSyncNotice,
       }}
     >
       {children}

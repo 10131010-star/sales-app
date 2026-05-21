@@ -30,8 +30,11 @@ export const PRIORITIES = ['高', '中', '低'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
 export const KNOWLEDGE_CATEGORIES = [
-  '成功事例', '失敗事例', '切り返し', '受付突破', '競合対策', 'クロージング',
-  '再アプローチ', '利益改善事例', '繁盛店分析', '店舗タイプ別攻略', 'エリア攻略', 'NGトーク',
+  '初回訪問',
+  '切り返し',
+  '提案',
+  'クロージング',
+  '成功事例',
 ] as const;
 
 export type KnowledgeCategory = (typeof KNOWLEDGE_CATEGORIES)[number];

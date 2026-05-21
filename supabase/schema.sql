@@ -69,24 +69,29 @@ create table if not exists sales_records (
   updated_at timestamptz not null default now()
 );
 
--- ナレッジ
+-- ナレッジ（共同編集・5カテゴリ）
 create table if not exists knowledge_items (
-  id uuid primary key default uuid_generate_v4(),
+  id text primary key,
+  category text not null check (
+    category in ('初回訪問', '切り返し', '提案', 'クロージング', '成功事例')
+  ),
   title text not null,
-  category text not null,
-  target_area text not null default '',
-  store_type text not null default '',
-  objection text not null default '',
-  rebuttal text not null default '',
-  success_talk text not null default '',
-  ng_talk text not null default '',
-  usage_scene text not null default '',
-  importance text not null default '中',
+  summary text not null default '',
+  talk_script text not null default '',
+  customer_psychology text not null default '',
+  ng_example text not null default '',
+  success_point text not null default '',
+  next_action text not null default '',
   tags text[] not null default '{}',
-  registrant_id text not null check (registrant_id in ('nakata', 'mitsuyama')),
-  memo text not null default '',
+  favorite boolean not null default false,
+  created_by text not null default 'system',
+  updated_by text,
+  view_count int not null default 0,
+  used_count int not null default 0,
+  win_rate numeric,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (category, title)
 );
 
 create index if not exists idx_stores_area on stores(area);
