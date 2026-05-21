@@ -4,30 +4,34 @@
 
 ## セットアップ
 
-### 1. Supabase
-
-1. [Supabase](https://supabase.com/) でプロジェクトを作成
-2. SQL Editor で `supabase/schema.sql` を実行
-3. `.env` を作成（`.env.example` を参照）
-
-```
-VITE_SUPABASE_URL=https://xxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### 2. 起動
+### 起動（Supabase なしで OK）
 
 ```bash
 npm install
 npm run dev
 ```
 
-### 3. Vercel デプロイ
+**Supabase 未設定時**はブラウザの **localStorage** にデータが保存されます。スマホ単体・ローカル開発ですぐ使えます。
+
+### チーム共有（任意）Supabase
+
+1. [Supabase](https://supabase.com/) でプロジェクトを作成
+2. SQL Editor で `supabase/schema.sql` を実行
+3. `.env` に URL と anon key を設定（`.env.example` 参照）
+
+```
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+設定がある場合のみ Supabase に自動切り替えします。未設定でもアプリは動作します。
+
+### Vercel デプロイ
 
 - Framework: Vite
 - Build: `npm run build`
 - Output: `dist`
-- 環境変数に `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` を設定
+- チーム共有時のみ環境変数に `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` を設定
 
 ## 機能
 

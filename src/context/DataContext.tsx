@@ -12,7 +12,6 @@ import type { MemberId, SalesMemberId } from '@/data/constants';
 import { MEMBERS } from '@/data/constants';
 import { buildKnowledgeSeed } from '@/data/knowledgeSeed';
 import { createRepository } from '@/lib/storage';
-import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { periodKey } from '@/lib/kpi/periods';
 import type { PeriodType } from '@/data/constants';
 
@@ -70,20 +69,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     () => (localStorage.getItem(MEMBER_KEY) as SalesMemberId) || 'nakata',
   );
 
-  const repo = useMemo(() => {
-    try {
-      return createRepository();
-    } catch {
-      return null;
-    }
-  }, []);
+  const repo = useMemo(() => createRepository(), []);
 
   const refresh = useCallback(async () => {
-    if (!repo) {
-      setError('SUPABASE_NOT_CONFIGURED');
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -123,7 +111,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const saveStore = useCallback(
     async (store: Store) => {
-      if (!repo) return;
       const saved = await repo.upsertStore(store);
       patchData((prev) => ({
         ...prev,
@@ -137,7 +124,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const removeStore = useCallback(
     async (id: string) => {
-      if (!repo) return;
       await repo.deleteStore(id);
       patchData((prev) => ({ ...prev, stores: prev.stores.filter((s) => s.id !== id) }));
     },
@@ -146,7 +132,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const saveRecord = useCallback(
     async (record: SalesRecord) => {
-      if (!repo) return;
       const saved = await repo.upsertRecord(record);
       patchData((prev) => ({
         ...prev,
@@ -160,7 +145,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const removeRecord = useCallback(
     async (id: string) => {
-      if (!repo) return;
       await repo.deleteRecord(id);
       patchData((prev) => ({ ...prev, salesRecords: prev.salesRecords.filter((r) => r.id !== id) }));
     },
@@ -169,7 +153,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const saveTarget = useCallback(
     async (target: SalesTarget) => {
-      if (!repo) return;
       const saved = await repo.upsertTarget(target);
       patchData((prev) => ({
         ...prev,
@@ -183,7 +166,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const saveKnowledge = useCallback(
     async (item: KnowledgeItem) => {
-      if (!repo) return;
       const saved = await repo.upsertKnowledge(item);
       patchData((prev) => ({
         ...prev,
@@ -197,7 +179,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const removeKnowledge = useCallback(
     async (id: string) => {
-      if (!repo) return;
       await repo.deleteKnowledge(id);
       patchData((prev) => ({ ...prev, knowledgeItems: prev.knowledgeItems.filter((k) => k.id !== id) }));
     },
@@ -212,25 +193,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [data],
   );
-
-  if (!isSupabaseConfigured()) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="max-w-md text-center space-y-4">
-          <p className="text-4xl">⚙️</p>
-          <h1 className="text-xl font-bold text-slate-900">Supabase の設定が必要です</h1>
-          <p className="text-sm text-slate-600">
-            チーム共有のため、<code className="bg-slate-200 px-1 rounded">.env</code> に Supabase の URL と anon key を設定してください。
-          </p>
-          <pre className="text-left text-xs bg-slate-800 text-slate-100 p-4 rounded-xl overflow-x-auto">
-{`VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key`}
-          </pre>
-          <p className="text-xs text-slate-500">supabase/schema.sql を SQL Editor で実行してください。</p>
-        </div>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
