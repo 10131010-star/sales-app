@@ -1,112 +1,91 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { useData } from '@/context/DataContext';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
-import { ServiceBadge } from '@/components/ui/ServiceBadge';
-import { SERVICE_LABELS } from '@/data/types';
-
-type Tab = 'service' | 'fee' | 'ui';
+import { MEMBERS, memberName } from '@/data/constants';
+import { aggregateRecords, calcConversionRates, formatPct } from '@/lib/kpi/calculations';
+import { filterRecordsByPeriod, periodKey } from '@/lib/kpi/periods';
+import { monthAchievementRate, getTargetForMember } from '@/lib/kpi/goals';
+import { KPI_LABELS } from '@/data/constants';
 
 export function ComparePage() {
   const { data } = useData();
-  const [tab, setTab] = useState<Tab>('service');
+  const monthKey = periodKey('month');
+  const monthRecords = filterRecordsByPeriod(data.salesRecords, 'month');
+
+  const memberStats = useMemo(() => {
+    return MEMBERS.map((m) => {
+      const recs = m.id === 'team' ? monthRecords : monthRecords.filter((r) => r.memberId === m.id);
+      const counts = aggregateRecords(recs);
+      const rates = calcConversionRates(counts);
+      const target = getTargetForMember(data.salesTargets, monthKey, 'month', m.id);
+      const achievement = monthAchievementRate(counts, target);
+      return { member: m, counts, rates, achievement, target };
+    });
+  }, [data.salesTargets, monthRecords, monthKey]);
+
+  const visitRank = [...memberStats]
+    .filter((s) => s.member.id !== 'team')
+    .sort((a, b) => b.counts.visits - a.counts.visits);
+  const wonRank = [...visitRank].sort((a, b) => b.counts.won - a.counts.won);
+  const rateRank = [...visitRank].sort((a, b) => b.rates.finalWin - a.rates.finalWin);
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="4社比較" subtitle="Uber Eats・出前館・menu・Rocket Now" />
+    <div className="space-y-5 pb-4">
+      <header>
+        <h1 className="text-2xl font-bold text-slate-900">比較</h1>
+        <p className="text-sm text-slate-500">中田大翔 · 密山敦也 · チーム全体</p>
+      </header>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <Chip label="サービス" active={tab === 'service'} onClick={() => setTab('service')} />
-        <Chip label="手数料" active={tab === 'fee'} onClick={() => setTab('fee')} />
-        <Chip label="UI" active={tab === 'ui'} onClick={() => setTab('ui')} />
-      </div>
-
-      {tab === 'service' &&
-        data.platforms.map((p) => (
-          <Card key={p.serviceId}>
-            <ServiceBadge id={p.serviceId} />
-            <p className="mt-3 text-sm font-semibold text-slate-700">強み</p>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {p.strongAreas.map((a) => (
-                <span key={a} className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">
-                  {a}
-                </span>
-              ))}
+      {memberStats.map(({ member, counts, rates, achievement }) => (
+        <Card key={member.id} accent={member.color}>
+          <h2 className="text-lg font-bold" style={{ color: member.color }}>{member.name}</h2>
+          <p className="text-sm text-slate-500 mt-1">今月の実績</p>
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            {(['visits', 'frontOk', 'won'] as const).map((k) => (
+              <div key={k} className="text-center bg-slate-50 rounded-lg py-2">
+                <p className="text-xl font-bold">{counts[k]}</p>
+                <p className="text-[10px] text-slate-500">{KPI_LABELS[k]}</p>
+              </div>
+            ))}
+            <div className="text-center bg-slate-50 rounded-lg py-2">
+              <p className="text-xl font-bold text-violet-700">{formatPct(rates.finalWin)}</p>
+              <p className="text-[10px] text-slate-500">最終獲得率</p>
             </div>
-            <p className="mt-2 text-sm font-semibold text-slate-700">弱み</p>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {p.weakAreas.map((a) => (
-                <span key={a} className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800">
-                  {a}
-                </span>
-              ))}
-            </div>
-            <p className="mt-2 text-sm font-semibold text-slate-700">機能</p>
-            <ul className="mt-1 list-disc pl-4 text-sm text-slate-600">
-              {p.features.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs text-slate-400">{p.notes}</p>
-          </Card>
-        ))}
-
-      {tab === 'fee' && (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-slate-500">
-                  <th className="py-2">サービス</th>
-                  <th className="py-2">手数料（%）</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.platforms.map((p) => (
-                  <tr key={p.serviceId} className="border-b border-slate-100">
-                    <td className="py-3 font-medium">{SERVICE_LABELS[p.serviceId]}</td>
-                    <td className="py-3">
-                      {p.commissionMin}〜{p.commissionMax}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-          <p className="mt-3 text-xs text-amber-700 bg-amber-50 rounded-lg p-2">
-            ※ 手数料は契約・キャンペーンにより変動します。訪問前に最新情報を確認してください。
+          <p className={`text-sm mt-3 font-semibold ${achievement >= 100 ? 'text-emerald-600' : 'text-slate-600'}`}>
+            今月達成率（訪問）: {Math.round(achievement)}%
           </p>
         </Card>
-      )}
+      ))}
 
-      {tab === 'ui' && (
-        <div className="space-y-3">
-          {data.platforms.map((p) => (
-            <Card key={p.serviceId}>
-              <div className="flex items-center justify-between">
-                <ServiceBadge id={p.serviceId} />
-                <span className="text-2xl font-bold text-indigo-600">{p.uiScore}/5</span>
-              </div>
-              <div className="mt-2 h-3 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-indigo-500"
-                  style={{ width: `${(p.uiScore / 5) * 100}%` }}
-                />
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <Card>
+        <h3 className="font-bold text-slate-900 mb-3">訪問数</h3>
+        {visitRank.map((s, i) => (
+          <div key={s.member.id} className="flex justify-between py-2 border-b border-slate-50 last:border-0">
+            <span>{i + 1}. {memberName(s.member.id)}</span>
+            <span className="font-bold">{s.counts.visits}件</span>
+          </div>
+        ))}
+      </Card>
 
-      <Card className="bg-violet-50 border-violet-200">
-        <p className="text-sm font-semibold text-violet-900">UI比較のポイント（営業用）</p>
-        <ul className="mt-2 text-sm text-violet-800 space-y-1">
-          <li>• 注文導線のわかりやすさ</li>
-          <li>• 写真・メニュー編集のしやすさ</li>
-          <li>• オーナー向け管理画面</li>
-          <li>• 配達状況の見える化</li>
-        </ul>
+      <Card>
+        <h3 className="font-bold text-slate-900 mb-3">獲得数</h3>
+        {wonRank.map((s, i) => (
+          <div key={s.member.id} className="flex justify-between py-2 border-b border-slate-50 last:border-0">
+            <span>{i + 1}. {memberName(s.member.id)}</span>
+            <span className="font-bold text-emerald-600">{s.counts.won}件</span>
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        <h3 className="font-bold text-slate-900 mb-3">最終獲得率</h3>
+        {rateRank.map((s, i) => (
+          <div key={s.member.id} className="flex justify-between py-2 border-b border-slate-50 last:border-0">
+            <span>{i + 1}. {memberName(s.member.id)}</span>
+            <span className="font-bold text-violet-700">{formatPct(s.rates.finalWin)}</span>
+          </div>
+        ))}
       </Card>
     </div>
   );

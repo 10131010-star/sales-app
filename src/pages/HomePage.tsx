@@ -1,123 +1,124 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { useData } from '@/context/DataContext';
 import { Card } from '@/components/ui/Card';
-import { PageHeader } from '@/components/ui/PageHeader';
-import { StatCard } from '@/components/ui/StatCard';
-import { MemberSelector } from '@/components/MemberSelector';
-import { Button } from '@/components/ui/Button';
-import { aggregateVisits, formatRate } from '@/lib/kpi/calculations';
+import { Chip } from '@/components/ui/Chip';
+import { SalesMemberSelector } from '@/components/MemberSelector';
+import { KpiProgressCard } from '@/components/KpiProgressCard';
+import { ConversionRatesCard } from '@/components/ConversionRatesCard';
+import { aggregateRecords, calcConversionRates, formatPct } from '@/lib/kpi/calculations';
+import { detectBottlenecks, detectStepDrop } from '@/lib/kpi/bottleneck';
+import { filterRecordsByPeriod, periodKey, periodLabel } from '@/lib/kpi/periods';
+import { buildGoalProgress, getTargetForMember } from '@/lib/kpi/goals';
+import { KPI_LABELS, type PeriodType } from '@/data/constants';
 import { todayStr } from '@/lib/utils';
-
-const quickLinks = [
-  { to: '/analysis', label: '分析ダッシュボード', icon: '📈', color: '#8b5cf6' },
-  { to: '/kpi', label: 'KPI・日報', icon: '🎯', color: '#06b6d4' },
-  { to: '/campaigns', label: 'キャンペーン', icon: '🎁', color: '#f59e0b' },
-];
+import { memberName } from '@/data/constants';
 
 export function HomePage() {
-  const { data, currentMemberId, organizeTomorrowActions } = useData();
-  const today = todayStr();
-  const monthStart = startOfMonth(new Date());
-  const monthEnd = endOfMonth(new Date());
+  const { data, currentMemberId, recordsFor } = useData();
+  const [period, setPeriod] = useState<PeriodType>('day');
 
-  const memberVisits = data.visits.filter(
-    (v) =>
-      v.memberId === currentMemberId &&
-      isWithinInterval(parseISO(v.visitedAt), { start: monthStart, end: monthEnd }),
+  const records = recordsFor(currentMemberId);
+  const periodRecords = filterRecordsByPeriod(records, period);
+  const counts = aggregateRecords(periodRecords);
+  const rates = calcConversionRates(counts);
+  const pk = periodKey(period);
+  const target = getTargetForMember(data.salesTargets, pk, period, currentMemberId);
+  const goals = buildGoalProgress(counts, target);
+
+  const bottlenecks = useMemo(() => {
+    const list = detectBottlenecks(counts, rates);
+    const step = detectStepDrop(counts);
+    if (step) list.push(step);
+    return list;
+  }, [counts, rates]);
+
+  const todayStores = data.stores.filter(
+    (s) => s.assigneeId === currentMemberId && s.nextContactDate === todayStr(),
   );
-  const kpi = aggregateVisits(memberVisits);
-
-  const todayTodos = data.todos.filter((t) => t.dueDate === today && !t.completed);
-  const focusAreas = [...data.focusAreas].sort((a, b) => a.priority - b.priority);
-  const notAdoptedCount = data.stores.filter((s) => s.notAdoptedServices.length > 0).length;
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="営業ダッシュボード"
-        subtitle={format(new Date(), 'M月d日')}
-      />
+    <div className="space-y-5 pb-4">
+      <header>
+        <p className="text-sm text-violet-600 font-semibold">営業ダッシュボード</p>
+        <h1 className="text-2xl font-bold text-slate-900 mt-0.5">ホーム</h1>
+        <p className="text-sm text-slate-500">{periodLabel(period)} · {memberName(currentMemberId)}</p>
+      </header>
 
-      <Card className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white border-0">
-        <p className="text-sm opacity-90">ログイン中</p>
+      <Card className="bg-gradient-to-br from-violet-600 to-violet-800 text-white border-0">
+        <p className="text-sm opacity-90">担当者</p>
         <div className="mt-2">
-          <MemberSelector />
+          <SalesMemberSelector />
         </div>
       </Card>
 
-      <section>
-        <h2 className="mb-2 text-sm font-bold text-slate-700">今月のKPI（{data.members.find((m) => m.id === currentMemberId)?.name}）</h2>
-        <div className="grid grid-cols-2 gap-2">
-          <StatCard label="訪問数" value={kpi.visits} color="#6366f1" />
-          <StatCard label="獲得" value={kpi.won} sub={`成約率 ${formatRate(kpi.wonRate)}`} color="#10b981" />
-          <StatCard label="見込み" value={kpi.prospect} sub={`転換 ${formatRate(kpi.prospectRate)}`} color="#f59e0b" />
-          <StatCard label="FTR" value={kpi.ftr} sub={`FTR率 ${formatRate(kpi.ftrRate)}`} color="#ec4899" />
-        </div>
-        <Link to="/kpi" className="mt-2 block text-center text-sm text-indigo-600 font-medium">
-          詳細KPIを見る →
-        </Link>
-      </section>
+      <div className="flex gap-2">
+        {(['day', 'week', 'month'] as PeriodType[]).map((p) => (
+          <Chip key={p} label={p === 'day' ? '今日' : p === 'week' ? '今週' : '今月'} active={period === p} onClick={() => setPeriod(p)} />
+        ))}
+      </div>
 
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-700">今日やること ({todayTodos.length})</h2>
-          <Link to="/sales" className="text-sm text-indigo-600">+追加</Link>
+      <Card accent="#7c3aed">
+        <h2 className="font-bold text-slate-900 mb-3">KPI（{period === 'day' ? '今日' : period === 'week' ? '今週' : '今月'}）</h2>
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {(Object.keys(KPI_LABELS) as (keyof typeof KPI_LABELS)[]).map((k) => (
+            <div key={k} className="text-center">
+              <p className="text-2xl font-bold text-violet-700">{counts[k]}</p>
+              <p className="text-[10px] text-slate-500 leading-tight">{KPI_LABELS[k]}</p>
+            </div>
+          ))}
         </div>
-        {todayTodos.length === 0 ? (
-          <Card><p className="text-slate-500 text-sm">今日のタスクはありません 🎉</p></Card>
+        <p className="text-sm font-semibold text-slate-700 mb-2">目標進捗</p>
+        <KpiProgressCard goals={goals} compact />
+      </Card>
+
+      <Card>
+        <h2 className="font-bold text-slate-900 mb-2">今日のボトルネック</h2>
+        {bottlenecks.length === 0 ? (
+          <p className="text-sm text-emerald-600">大きな詰まりは検出されていません 👍</p>
         ) : (
-          <div className="space-y-2">
-            {todayTodos.map((t) => (
-              <Card key={t.id} accent="#6366f1">
-                <p className="font-medium text-slate-800">{t.title}</p>
-                {t.storeId && (
-                  <Link to={`/stores/${t.storeId}`} className="text-xs text-indigo-600 mt-1 inline-block">
-                    店舗カルテを開く
-                  </Link>
-                )}
-              </Card>
+          <div className="space-y-3">
+            {bottlenecks.map((b) => (
+              <div key={b.id} className={`rounded-xl p-3 ${b.severity === 'high' ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}`}>
+                <p className="font-semibold text-slate-900">{b.title}</p>
+                <p className="text-sm text-slate-600 mt-1">{b.message}</p>
+                <p className="text-sm text-violet-700 mt-2">💡 {b.hint}</p>
+              </div>
             ))}
           </div>
         )}
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-sm font-bold text-slate-700">重点訪問エリア</h2>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {focusAreas.map((fa) => (
-            <Card key={fa.id} className="min-w-[140px] shrink-0" accent="#8b5cf6">
-              <p className="font-bold text-slate-800">{fa.name}</p>
-              <p className="text-xs text-slate-500 mt-1">{fa.notes}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-sm font-bold text-slate-700">クイックアクセス</h2>
-        <div className="grid grid-cols-1 gap-2">
-          {quickLinks.map((l) => (
-            <Link key={l.to} to={l.to}>
-              <Card accent={l.color} className="flex items-center gap-3">
-                <span className="text-2xl">{l.icon}</span>
-                <span className="font-semibold text-slate-800">{l.label}</span>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <Card>
-        <p className="text-sm text-slate-600">未導入店舗候補: <strong>{notAdoptedCount}</strong> 件</p>
-        <Link to="/stores?filter=not_adopted" className="text-sm text-indigo-600 font-medium mt-1 inline-block">
-          一覧を見る →
-        </Link>
       </Card>
 
-      <Button fullWidth variant="secondary" onClick={() => void organizeTomorrowActions()}>
-        📅 明日のアクションを自動整理
-      </Button>
+      <Card>
+        <details>
+          <summary className="font-bold text-slate-900 cursor-pointer">転換率の詳細</summary>
+          <div className="mt-3">
+            <ConversionRatesCard counts={counts} />
+          </div>
+        </details>
+        <p className="text-sm mt-3 text-slate-600">
+          最終獲得率: <strong className="text-violet-700">{formatPct(rates.finalWin)}</strong>
+        </p>
+      </Card>
+
+      <Card accent="#0d9488">
+        <h2 className="font-bold text-slate-900 mb-2">今日やること</h2>
+        {todayStores.length === 0 ? (
+          <p className="text-sm text-slate-500">次回接触予定の店舗はありません</p>
+        ) : (
+          <ul className="space-y-2">
+            {todayStores.map((s) => (
+              <li key={s.id}>
+                <Link to={`/stores/${s.id}`} className="text-violet-700 font-medium">
+                  {s.name}
+                </Link>
+                {s.nextAction && <p className="text-sm text-slate-500">→ {s.nextAction}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link to="/stores" className="text-sm text-violet-600 mt-2 inline-block">店舗一覧 →</Link>
+      </Card>
     </div>
   );
 }

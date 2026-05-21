@@ -7,9 +7,6 @@ import { StoresPage } from '@/pages/StoresPage';
 import { StoreDetailPage } from '@/pages/StoreDetailPage';
 import { SalesPage } from '@/pages/SalesPage';
 import { KnowledgePage } from '@/pages/KnowledgePage';
-import { AnalysisPage } from '@/pages/AnalysisPage';
-import { KpiPage } from '@/pages/KpiPage';
-import { CampaignsPage } from '@/pages/CampaignsPage';
 
 export default function App() {
   return (
@@ -23,9 +20,6 @@ export default function App() {
             <Route path="/stores/:id" element={<StoreDetailPage />} />
             <Route path="/sales" element={<SalesPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />
-            <Route path="/analysis" element={<AnalysisPage />} />
-            <Route path="/kpi" element={<KpiPage />} />
-            <Route path="/campaigns" element={<CampaignsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

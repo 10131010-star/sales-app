@@ -8,16 +8,23 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html, body, #root {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
   background: #f8fafc;
   color: #0f172a;
+  font-size: 16px;
 }
 
-input,
-textarea,
-select,
-button {
+input, textarea, select, button {
   font-family: inherit;
+  font-size: 16px;
+}
+
+button, a {
+  touch-action: manipulation;
 }

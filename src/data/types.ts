@@ -1,156 +1,45 @@
-export type ServiceId = 'uber_eats' | 'demae_can' | 'menu' | 'rocket_now';
+import type {
+  AdoptionStatus,
+  KnowledgeCategory,
+  MemberId,
+  PeriodType,
+  Priority,
+  SalesMemberId,
+} from './constants';
 
-export const SERVICE_LABELS: Record<ServiceId, string> = {
-  uber_eats: 'Uber Eats',
-  demae_can: '出前館',
-  menu: 'menu',
-  rocket_now: 'Rocket Now',
-};
-
-export const SERVICE_COLORS: Record<ServiceId, string> = {
-  uber_eats: 'bg-emerald-500',
-  demae_can: 'bg-red-500',
-  menu: 'bg-orange-500',
-  rocket_now: 'bg-violet-500',
-};
-
-export interface PlatformCompare {
-  serviceId: ServiceId;
-  commissionMin: number;
-  commissionMax: number;
-  uiScore: number;
-  strongAreas: string[];
-  weakAreas: string[];
-  features: string[];
-  notes: string;
-  updatedAt: string;
-}
-
-export interface Member {
-  id: string;
-  name: string;
-  color: string;
-}
-
-export interface StoreCard {
+export interface Store {
   id: string;
   name: string;
   area: string;
+  address: string;
   businessType: string;
-  adoptedServices: ServiceId[];
-  notAdoptedServices: ServiceId[];
   hours: string;
-  priceRange: 'low' | 'mid' | 'high';
-  productCount?: number;
-  photoStrength: 1 | 2 | 3 | 4 | 5;
-  reviewCount?: number;
-  rating?: number;
-  popularMenus: string[];
-  setDesign?: string;
-  targetCustomers?: string;
-  ownerType?: string;
-  benefitHypothesis?: string;
-  concerns?: string;
-  pitchTalk?: string;
-  nextAction?: string;
-  priorityArea: boolean;
-  prospectLevel: 'none' | 'low' | 'mid' | 'high';
+  phone: string;
+  instagramUrl: string;
+  googleMapUrl: string;
+  reviewSiteUrl: string;
+  assigneeId: SalesMemberId;
+  adoptionStatus: AdoptionStatus;
+  priority: Priority;
+  salesMemo: string;
+  rejectionReason: string;
+  nextAction: string;
+  nextContactDate: string | null;
+  lastContactDate: string | null;
+  /** 将来: 営業録音の文字起こし */
+  transcriptionText: string;
+  /** 将来: AI要約用の生メモ */
+  aiMemoRaw: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface VisitLog {
+export interface SalesRecord {
   id: string;
-  storeId: string;
-  memberId: string;
-  visitedAt: string;
-  frontOk: boolean;
-  metManager: boolean;
-  fullTalk: boolean;
-  prospect: boolean;
-  appointment: boolean;
-  verbalOk: boolean;
-  won: boolean;
-  quickMemo?: string;
-  negotiationMemo?: string;
-}
-
-export interface TodoItem {
-  id: string;
-  title: string;
-  storeId?: string;
-  memberId: string;
-  dueDate: string;
-  completed: boolean;
-  source: 'manual' | 'next_action' | 'auto_tomorrow';
-  createdAt: string;
-}
-
-export interface Campaign {
-  id: string;
-  title: string;
-  serviceId: ServiceId;
-  startDate: string;
-  endDate: string;
-  description: string;
-  targetAreas: string[];
-  active: boolean;
-}
-
-export interface SalesScript {
-  id: string;
-  type: 'talk' | 'objection' | 'rebuttal' | 'hook' | 'success' | 'loss';
-  title: string;
-  content: string;
-  businessTypes: string[];
-  tags: string[];
-  memberId?: string;
-}
-
-export interface WinLossPattern {
-  id: string;
-  type: 'win' | 'loss';
-  title: string;
-  situation: string;
-  action: string;
-  result: string;
-  businessType: string;
-  memberId: string;
-  createdAt: string;
-}
-
-export interface DailyReport {
-  id: string;
-  date: string;
-  memberId: string;
-  summary: string;
-  learnings: string;
-  improvementMemo: string;
-  tomorrowPlan: string;
-  createdAt: string;
-}
-
-export interface FocusArea {
-  id: string;
-  name: string;
-  priority: number;
-  notes: string;
-}
-
-export interface AppData {
-  platforms: PlatformCompare[];
-  members: Member[];
-  stores: StoreCard[];
-  visits: VisitLog[];
-  todos: TodoItem[];
-  campaigns: Campaign[];
-  scripts: SalesScript[];
-  patterns: WinLossPattern[];
-  dailyReports: DailyReport[];
-  focusAreas: FocusArea[];
-}
-
-export interface KpiSummary {
+  recordDate: string;
+  memberId: SalesMemberId;
+  storeId: string | null;
+  area: string;
   visits: number;
   frontOk: number;
   metManager: number;
@@ -159,18 +48,80 @@ export interface KpiSummary {
   appointment: number;
   verbalOk: number;
   won: number;
-  ftr: number;
-  frontOkRate: number;
-  metManagerRate: number;
-  fullTalkRate: number;
-  prospectRate: number;
-  appointmentRate: number;
-  verbalOkRate: number;
-  wonRate: number;
-  ftrRate: number;
+  quickMemo: string;
+  negotiationMemo: string;
+  transcriptionText: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export const PRICE_LABELS = { low: '〜999円', mid: '1000〜1999円', high: '2000円〜' } as const;
-export const BUSINESS_TYPES = ['居酒屋', 'ラーメン', 'カレー', '弁当', '寿司', '焼肉', 'カフェ', '中華', '洋食', 'その他'] as const;
-export const AREAS = ['渋谷', '新宿', '池袋', '品川', '横浜', '大宮', '千葉', 'その他'] as const;
-export const OWNER_TYPES = ['積極型', '慎重型', '忙しい型', '価格重視', '品質重視'] as const;
+export interface SalesTarget {
+  id: string;
+  periodType: PeriodType;
+  periodKey: string;
+  memberId: MemberId;
+  visitsTarget: number;
+  frontOkTarget: number;
+  metManagerTarget: number;
+  fullTalkTarget: number;
+  prospectTarget: number;
+  appointmentTarget: number;
+  verbalOkTarget: number;
+  wonTarget: number;
+  updatedAt: string;
+}
+
+export interface KnowledgeItem {
+  id: string;
+  title: string;
+  category: KnowledgeCategory;
+  targetArea: string;
+  storeType: string;
+  objection: string;
+  rebuttal: string;
+  successTalk: string;
+  ngTalk: string;
+  usageScene: string;
+  importance: string;
+  tags: string[];
+  registrantId: SalesMemberId;
+  memo: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppData {
+  stores: Store[];
+  salesRecords: SalesRecord[];
+  salesTargets: SalesTarget[];
+  knowledgeItems: KnowledgeItem[];
+}
+
+export interface KpiCounts {
+  visits: number;
+  frontOk: number;
+  metManager: number;
+  fullTalk: number;
+  prospect: number;
+  appointment: number;
+  verbalOk: number;
+  won: number;
+}
+
+export interface ConversionRates {
+  frontBreakthrough: number;
+  metManager: number;
+  fullTalk: number;
+  prospect: number;
+  appointment: number;
+  verbalOk: number;
+  finalWin: number;
+}
+
+export interface ConversionRateMeta {
+  key: keyof ConversionRates;
+  label: string;
+  hint: string;
+  numerator: keyof KpiCounts;
+  denominator: keyof KpiCounts;
+}
