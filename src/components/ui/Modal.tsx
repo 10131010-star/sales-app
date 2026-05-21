@@ -23,37 +23,38 @@ export function Modal({ open, title, onClose, children, onSave, saveLabel = '保
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-auto p-0 sm:p-4"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
       role="dialog"
       aria-modal="true"
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/50 pointer-events-auto"
+        className="absolute inset-0 bg-black/50"
         aria-label="閉じる"
         onClick={onClose}
       />
-      <div
-        className="relative z-[101] flex w-full max-w-lg flex-col max-h-[90dvh] rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl pointer-events-auto mx-0 sm:mx-4"
-      >
-        <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 flex justify-between items-center rounded-t-2xl sm:rounded-t-2xl">
-          <h2 className="text-lg font-bold text-slate-900 pr-2">{title}</h2>
+
+      <div className="relative z-[101] w-full max-w-lg max-h-[90dvh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col min-h-0 overflow-hidden sm:mx-4">
+        {/* ヘッダー（上部固定） */}
+        <div className="shrink-0 p-6 border-b border-slate-100 flex justify-between items-center gap-3">
+          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             className="text-slate-500 text-2xl leading-none p-2 min-h-[44px] min-w-[44px] shrink-0"
+            aria-label="閉じる"
           >
             ×
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 pb-32">
+        {/* 入力フォームのみスクロール */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-4 [-webkit-overflow-scrolling:touch]">
           {children}
         </div>
 
-        <div
-          className="shrink-0 border-t border-slate-100 bg-white p-4 flex gap-2 pb-[max(1rem,env(safe-area-inset-bottom))]"
-        >
+        {/* 保存・キャンセル（下部固定・Safe Area対応） */}
+        <div className="shrink-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] border-t border-slate-100 bg-white flex gap-2">
           <Button variant="secondary" fullWidth onClick={onClose}>
             キャンセル
           </Button>
