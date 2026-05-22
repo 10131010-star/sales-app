@@ -101,6 +101,18 @@ export function HomePage() {
         </p>
       </Card>
 
+      <Link to="/store-analysis">
+        <Card accent="#6366f1" className="bg-gradient-to-r from-indigo-50 to-violet-50">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📊</span>
+            <div>
+              <h2 className="font-bold text-slate-900">店舗分析AI</h2>
+              <p className="text-sm text-slate-600 mt-0.5">上位店比較ベースの導入レポート（新規）</p>
+            </div>
+          </div>
+        </Card>
+      </Link>
+
       <Card accent="#0d9488">
         <h2 className="font-bold text-slate-900 mb-2">今日やること</h2>
         {todayStores.length === 0 ? (

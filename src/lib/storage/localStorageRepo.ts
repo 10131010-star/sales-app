@@ -1,3 +1,5 @@
+import type { SalesLog } from '@/data/salesLog/types';
+import type { StoreReview } from '@/data/reviews/types';
 import type { AppData, KnowledgeItem, SalesRecord, SalesTarget, Store } from '@/data/types';
 import { KNOWLEDGE_CATEGORIES } from '@/data/constants';
 import { filterNewKnowledgeItems } from '@/data/seedKnowledge';
@@ -9,6 +11,8 @@ export const LOCAL_STORAGE_KEY = 'sales-app:v2:data';
 const EMPTY_DATA: AppData = {
   stores: [],
   salesRecords: [],
+  salesLogs: [],
+  storeReviews: [],
   salesTargets: [],
   knowledgeItems: [],
 };
@@ -22,6 +26,8 @@ export class LocalStorageRepository implements DataRepository {
       return {
         stores: parsed.stores ?? [],
         salesRecords: parsed.salesRecords ?? [],
+        salesLogs: parsed.salesLogs ?? [],
+        storeReviews: parsed.storeReviews ?? [],
         salesTargets: parsed.salesTargets ?? [],
         knowledgeItems: (parsed.knowledgeItems ?? []).map((k) => migrateKnowledgeItem(k as KnowledgeItem & Record<string, unknown>)),
       };
@@ -81,6 +87,48 @@ export class LocalStorageRepository implements DataRepository {
   async deleteRecord(id: string): Promise<void> {
     const data = await this.read();
     data.salesRecords = data.salesRecords.filter((r) => r.id !== id);
+    await this.write(data);
+  }
+
+  async upsertSalesLog(log: SalesLog): Promise<SalesLog> {
+    const data = await this.read();
+    const now = new Date().toISOString();
+    const id = log.id || uid();
+    const saved: SalesLog = { ...log, id, createdAt: log.createdAt || now, updatedAt: now };
+    const idx = data.salesLogs.findIndex((l) => l.id === id);
+    if (idx >= 0) data.salesLogs[idx] = saved;
+    else data.salesLogs.unshift(saved);
+    await this.write(data);
+    return saved;
+  }
+
+  async deleteSalesLog(id: string): Promise<void> {
+    const data = await this.read();
+    data.salesLogs = data.salesLogs.filter((l) => l.id !== id);
+    await this.write(data);
+  }
+
+  async upsertStoreReview(review: StoreReview): Promise<StoreReview> {
+    const data = await this.read();
+    const now = new Date().toISOString();
+    const id = review.id || uid();
+    const saved: StoreReview = {
+      ...review,
+      id,
+      analyzedAt: review.analyzedAt || now,
+      createdAt: review.createdAt || now,
+      updatedAt: now,
+    };
+    const idx = data.storeReviews.findIndex((r) => r.id === id);
+    if (idx >= 0) data.storeReviews[idx] = saved;
+    else data.storeReviews.unshift(saved);
+    await this.write(data);
+    return saved;
+  }
+
+  async deleteStoreReview(id: string): Promise<void> {
+    const data = await this.read();
+    data.storeReviews = data.storeReviews.filter((r) => r.id !== id);
     await this.write(data);
   }
 

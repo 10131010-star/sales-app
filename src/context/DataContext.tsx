@@ -8,6 +8,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { SalesLog } from '@/data/salesLog/types';
+import type { StoreReview } from '@/data/reviews/types';
 import type { AppData, KnowledgeItem, SalesRecord, SalesTarget, Store } from '@/data/types';
 import type { MemberId, SalesMemberId } from '@/data/constants';
 import { MEMBERS } from '@/data/constants';
@@ -30,6 +32,10 @@ interface DataContextValue {
   removeStore: (id: string) => Promise<void>;
   saveRecord: (record: SalesRecord) => Promise<void>;
   removeRecord: (id: string) => Promise<void>;
+  saveSalesLog: (log: SalesLog) => Promise<void>;
+  removeSalesLog: (id: string) => Promise<void>;
+  saveStoreReview: (review: StoreReview) => Promise<void>;
+  removeStoreReview: (id: string) => Promise<void>;
   saveTarget: (target: SalesTarget) => Promise<void>;
   saveKnowledge: (item: KnowledgeItem) => Promise<void>;
   removeKnowledge: (id: string) => Promise<void>;
@@ -110,7 +116,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (missingTargets.length > 0) {
         loaded = await repo.load();
       }
-      setData(loaded);
+      setData({
+        ...loaded,
+        salesLogs: loaded.salesLogs ?? [],
+        storeReviews: loaded.storeReviews ?? [],
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'データの読み込みに失敗しました');
     } finally {
@@ -215,6 +225,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [repo, patchData],
   );
 
+  const saveSalesLog = useCallback(
+    async (log: SalesLog) => {
+      const saved = await repo.upsertSalesLog(log);
+      patchData((prev) => ({
+        ...prev,
+        salesLogs: (prev.salesLogs ?? []).some((l) => l.id === saved.id)
+          ? (prev.salesLogs ?? []).map((l) => (l.id === saved.id ? saved : l))
+          : [saved, ...(prev.salesLogs ?? [])],
+      }));
+    },
+    [repo, patchData],
+  );
+
+  const removeSalesLog = useCallback(
+    async (id: string) => {
+      await repo.deleteSalesLog(id);
+      patchData((prev) => ({
+        ...prev,
+        salesLogs: (prev.salesLogs ?? []).filter((l) => l.id !== id),
+      }));
+    },
+    [repo, patchData],
+  );
+
+  const saveStoreReview = useCallback(
+    async (review: StoreReview) => {
+      const saved = await repo.upsertStoreReview(review);
+      patchData((prev) => ({
+        ...prev,
+        storeReviews: (prev.storeReviews ?? []).some((r) => r.id === saved.id)
+          ? (prev.storeReviews ?? []).map((r) => (r.id === saved.id ? saved : r))
+          : [saved, ...(prev.storeReviews ?? [])],
+      }));
+    },
+    [repo, patchData],
+  );
+
+  const removeStoreReview = useCallback(
+    async (id: string) => {
+      await repo.deleteStoreReview(id);
+      patchData((prev) => ({
+        ...prev,
+        storeReviews: (prev.storeReviews ?? []).filter((r) => r.id !== id),
+      }));
+    },
+    [repo, patchData],
+  );
+
   const saveTarget = useCallback(
     async (target: SalesTarget) => {
       const saved = await repo.upsertTarget(target);
@@ -302,6 +360,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         removeStore,
         saveRecord,
         removeRecord,
+        saveSalesLog,
+        removeSalesLog,
+        saveStoreReview,
+        removeStoreReview,
         saveTarget,
         storageMode,
         saveKnowledge,

@@ -9,13 +9,14 @@ import { ConversionRatesCard } from '@/components/ConversionRatesCard';
 import { aggregateRecords } from '@/lib/kpi/calculations';
 import { filterRecordsByPeriod } from '@/lib/kpi/periods';
 import { OSAKA_AREAS, KPI_LABELS, type PeriodType } from '@/data/constants';
+import { SALES_LOG_OUTCOMES, type SalesLogOutcome } from '@/data/salesLog/types';
 import type { SalesRecord } from '@/data/types';
 import { uid, todayStr } from '@/lib/utils';
 
 const KPI_KEYS = ['visits', 'frontOk', 'metManager', 'fullTalk', 'prospect', 'appointment', 'verbalOk', 'won'] as const;
 
 export function SalesPage() {
-  const { data, currentMemberId, saveRecord, removeRecord } = useData();
+  const { data, currentMemberId, saveRecord, removeRecord, saveSalesLog, removeSalesLog } = useData();
   const [searchParams] = useSearchParams();
   const preStoreId = searchParams.get('store');
   const [period, setPeriod] = useState<PeriodType>('day');
@@ -30,6 +31,15 @@ export function SalesPage() {
   const [quickMemo, setQuickMemo] = useState('');
   const [negotiationMemo, setNegotiationMemo] = useState('');
   const [transcription, setTranscription] = useState('');
+  const [detailOpen, setDetailOpen] = useState(true);
+  const [outcome, setOutcome] = useState<SalesLogOutcome>('保留');
+  const [objectionHeard, setObjectionHeard] = useState('');
+  const [hitProposal, setHitProposal] = useState('');
+  const [dislikedPoint, setDislikedPoint] = useState('');
+  const [ownerReaction, setOwnerReaction] = useState('');
+  const [nextAction, setNextAction] = useState('');
+
+  const recentLogs = (data.salesLogs ?? []).slice(0, 20);
 
   const periodRecords = useMemo(() => {
     let recs = filterRecordsByPeriod(data.salesRecords, period);
@@ -60,13 +70,13 @@ export function SalesPage() {
   };
 
   const save = async () => {
-    const store = data.stores.find((s) => s.id === storeId);
+    const linkedStore = data.stores.find((s) => s.id === storeId);
     const record: SalesRecord = {
       id: uid(),
       recordDate: filterDate,
       memberId: currentMemberId,
       storeId: storeId || null,
-      area: area || store?.area || '',
+      area: area || linkedStore?.area || '',
       visits: counts.visits,
       frontOk: counts.frontOk,
       metManager: counts.metManager,
@@ -82,10 +92,37 @@ export function SalesPage() {
       updatedAt: new Date().toISOString(),
     };
     await saveRecord(record);
+
+    const now = new Date().toISOString();
+    await saveSalesLog({
+      id: uid(),
+      storeId: storeId || null,
+      memberId: currentMemberId,
+      visitedAt: `${filterDate}T12:00:00.000Z`,
+      area: area || linkedStore?.area || '',
+      businessType: linkedStore?.businessType || '',
+      outcome,
+      objectionHeard,
+      hitProposal,
+      dislikedPoint,
+      ownerReaction,
+      nextAction,
+      quickMemo,
+      negotiationMemo,
+      createdAt: now,
+      updatedAt: now,
+    });
+
     setCounts({ visits: 1, frontOk: 0, metManager: 0, fullTalk: 0, prospect: 0, appointment: 0, verbalOk: 0, won: 0 });
     setQuickMemo('');
     setNegotiationMemo('');
     setTranscription('');
+    setObjectionHeard('');
+    setHitProposal('');
+    setDislikedPoint('');
+    setOwnerReaction('');
+    setNextAction('');
+    setOutcome('保留');
   };
 
   return (
@@ -173,8 +210,58 @@ export function SalesPage() {
           value={transcription}
           onChange={(e) => setTranscription(e.target.value)}
         />
+
+        <button
+          type="button"
+          className="w-full flex justify-between items-center mt-4 text-left text-sm font-semibold text-violet-800"
+          onClick={() => setDetailOpen(!detailOpen)}
+        >
+          詳細営業履歴（RAG用）
+          <span>{detailOpen ? '▲' : '▼'}</span>
+        </button>
+        {detailOpen && (
+          <div className="mt-2 space-y-3 border-t pt-3">
+            <p className="text-xs text-slate-500">商談結果と現場メモは分析AIの根拠になります</p>
+            <div className="flex flex-wrap gap-1">
+              {SALES_LOG_OUTCOMES.map((o) => (
+                <Chip key={o} label={o} active={outcome === o} onClick={() => setOutcome(o)} />
+              ))}
+            </div>
+            <input
+              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[44px]"
+              placeholder="聞いた断り文句（例: 忙しくなる）"
+              value={objectionHeard}
+              onChange={(e) => setObjectionHeard(e.target.value)}
+            />
+            <input
+              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[44px]"
+              placeholder="刺さった提案"
+              value={hitProposal}
+              onChange={(e) => setHitProposal(e.target.value)}
+            />
+            <input
+              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[44px]"
+              placeholder="嫌がったポイント"
+              value={dislikedPoint}
+              onChange={(e) => setDislikedPoint(e.target.value)}
+            />
+            <input
+              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[44px]"
+              placeholder="オーナー反応"
+              value={ownerReaction}
+              onChange={(e) => setOwnerReaction(e.target.value)}
+            />
+            <input
+              className="w-full rounded-xl border px-3 py-2 text-sm min-h-[44px]"
+              placeholder="次回アクション"
+              value={nextAction}
+              onChange={(e) => setNextAction(e.target.value)}
+            />
+          </div>
+        )}
+
         <Button fullWidth size="lg" className="mt-3" onClick={() => void save()}>
-          保存
+          実績＋営業履歴を保存
         </Button>
       </Card>
 
@@ -188,12 +275,36 @@ export function SalesPage() {
       </Card>
 
       <section>
+        <h2 className="text-sm font-bold text-slate-700 mb-2">営業履歴ログ ({recentLogs.length})</h2>
+        {recentLogs.slice(0, 15).map((l) => {
+          const store = data.stores.find((s) => s.id === l.storeId);
+          const logDisplayName = (store?.name ?? l.area) || '—';
+          return (
+            <Card key={l.id} className="mb-2 border-violet-100">
+              <p className="font-medium text-sm">
+                {logDisplayName}
+                <span className="ml-2 text-xs bg-violet-100 text-violet-800 px-2 py-0.5 rounded-full">{l.outcome}</span>
+              </p>
+              <p className="text-xs text-slate-500">{l.visitedAt.slice(0, 10)}</p>
+              {l.hitProposal && <p className="text-xs mt-1 text-emerald-800">刺さった: {l.hitProposal}</p>}
+              {l.objectionHeard && <p className="text-xs text-amber-800">断り: {l.objectionHeard}</p>}
+              {l.nextAction && <p className="text-xs text-slate-600">次回: {l.nextAction}</p>}
+              <Button size="sm" variant="danger" className="mt-2" onClick={() => void removeSalesLog(l.id)}>
+                削除
+              </Button>
+            </Card>
+          );
+        })}
+      </section>
+
+      <section>
         <h2 className="text-sm font-bold text-slate-700 mb-2">実績一覧 ({periodRecords.length})</h2>
         {periodRecords.slice(0, 30).map((r) => {
           const store = data.stores.find((s) => s.id === r.storeId);
+          const recordDisplayName = (store?.name ?? r.area) || '—';
           return (
             <Card key={r.id} className="mb-2">
-              <p className="font-medium">{store?.name ?? (r.area || '—')}</p>
+              <p className="font-medium">{recordDisplayName}</p>
               <p className="text-xs text-slate-500">{r.recordDate} · 訪問{r.visits} 獲得{r.won}</p>
               {r.quickMemo && <p className="text-sm mt-1">{r.quickMemo}</p>}
               <Button size="sm" variant="danger" className="mt-2" onClick={() => void removeRecord(r.id)}>

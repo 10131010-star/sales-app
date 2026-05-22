@@ -7,6 +7,7 @@ import { StoresPage } from '@/pages/StoresPage';
 import { StoreDetailPage } from '@/pages/StoreDetailPage';
 import { SalesPage } from '@/pages/SalesPage';
 import { KnowledgePage } from '@/pages/KnowledgePage';
+import { StoreAnalysisPage } from '@/pages/StoreAnalysisPage';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="/stores/:id" element={<StoreDetailPage />} />
             <Route path="/sales" element={<SalesPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />
+            <Route path="/store-analysis" element={<StoreAnalysisPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

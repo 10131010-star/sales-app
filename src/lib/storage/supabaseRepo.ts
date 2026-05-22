@@ -10,15 +10,20 @@ import {
   targetToRow,
 } from '@/lib/supabase/mappers';
 import { filterNewKnowledgeItems } from '@/data/seedKnowledge';
+import type { SalesLog } from '@/data/salesLog/types';
+import type { StoreReview } from '@/data/reviews/types';
+import { mapSalesLog, mapStoreReview, salesLogToRow, storeReviewToRow } from '@/lib/supabase/ragMappers';
 import type { AppData, KnowledgeItem, SalesRecord, SalesTarget, Store } from '@/data/types';
 import type { DataRepository } from './repository';
 
 export class SupabaseRepository implements DataRepository {
   async load(): Promise<AppData> {
     const sb = getSupabase();
-    const [storesRes, recordsRes, targetsRes, knowledgeRes] = await Promise.all([
+    const [storesRes, recordsRes, logsRes, reviewsRes, targetsRes, knowledgeRes] = await Promise.all([
       sb.from('stores').select('*').order('updated_at', { ascending: false }),
       sb.from('sales_records').select('*').order('record_date', { ascending: false }),
+      sb.from('sales_logs').select('*').order('visited_at', { ascending: false }),
+      sb.from('reviews').select('*').order('analyzed_at', { ascending: false }),
       sb.from('sales_targets').select('*'),
       sb.from('knowledge_items').select('*').order('updated_at', { ascending: false }),
     ]);
@@ -30,7 +35,9 @@ export class SupabaseRepository implements DataRepository {
 
     return {
       stores: (storesRes.data ?? []).map(mapStore),
-      salesRecords: (recordsRes.data ?? []).map(mapRecord),
+      salesRecords: (recordsRes.error ? [] : (recordsRes.data ?? []).map(mapRecord)),
+      salesLogs: logsRes.error ? [] : (logsRes.data ?? []).map(mapSalesLog),
+      storeReviews: reviewsRes.error ? [] : (reviewsRes.data ?? []).map(mapStoreReview),
       salesTargets: (targetsRes.data ?? []).map(mapTarget),
       knowledgeItems: (knowledgeRes.data ?? []).map(mapKnowledge),
     };
@@ -65,6 +72,38 @@ export class SupabaseRepository implements DataRepository {
 
   async deleteRecord(id: string): Promise<void> {
     const { error } = await getSupabase().from('sales_records').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async upsertSalesLog(log: SalesLog): Promise<SalesLog> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('sales_logs')
+      .upsert(salesLogToRow(log))
+      .select()
+      .single();
+    if (error) throw error;
+    return mapSalesLog(data);
+  }
+
+  async deleteSalesLog(id: string): Promise<void> {
+    const { error } = await getSupabase().from('sales_logs').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async upsertStoreReview(review: StoreReview): Promise<StoreReview> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('reviews')
+      .upsert(storeReviewToRow(review))
+      .select()
+      .single();
+    if (error) throw error;
+    return mapStoreReview(data);
+  }
+
+  async deleteStoreReview(id: string): Promise<void> {
+    const { error } = await getSupabase().from('reviews').delete().eq('id', id);
     if (error) throw error;
   }
 

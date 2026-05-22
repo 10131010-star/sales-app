@@ -6,6 +6,8 @@ import type {
   Priority,
   SalesMemberId,
 } from './constants';
+import type { SalesLog } from '@/data/salesLog/types';
+import type { StoreReview } from '@/data/reviews/types';
 
 export interface Store {
   id: string;
@@ -99,6 +101,8 @@ export interface KnowledgeItem {
 export interface AppData {
   stores: Store[];
   salesRecords: SalesRecord[];
+  salesLogs: SalesLog[];
+  storeReviews: StoreReview[];
   salesTargets: SalesTarget[];
   knowledgeItems: KnowledgeItem[];
 }
